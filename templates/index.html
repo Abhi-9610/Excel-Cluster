@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="text-center animate__animated animate__fadeIn">
+    <h1 class="mb-4">Upload Your File</h1>
+    <p class="lead">Choose a file to upload and filter the data.</p>
+</div>
+<form action="/" method="post" enctype="multipart/form-data" class="animate__animated animate__zoomIn">
+    <div class="mb-3">
+        <input type="file" name="file" class="form-control" required>
+    </div>
+    <button type="submit" class="btn btn-primary">Upload</button>
+</form>
+{% endblock %}

@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="text-center animate__animated animate__fadeIn">
+    <h2>Filter Your Data</h2>
+    <p class="lead">Select the column to filter and choose columns to display.</p>
+</div>
+<form action="/filter" method="post" class="animate__animated animate__zoomIn">
+    <input type="hidden" name="file" value="{{ file }}">
+    
+    <!-- Select filter column -->
+    <div class="mb-3">
+        <label for="filter_column" class="form-label">Select Filter Column</label>
+        <select name="filter_column" class="form-select" required>
+            {% for column in columns %}
+            <option value="{{ column }}">{{ column }}</option>
+            {% endfor %}
+        </select>
+    </div>
+
+    <!-- Select columns to display in a grid layout -->
+    <div class="mb-3">
+        <label class="form-label">Select Columns to Display</label>
+        <div class="row">
+            {% for column in columns %}
+            <div class="col-md-3 mb-2">
+                <div class="form-check">
+                    <input class="form-check-input" type="checkbox" name="columns" value="{{ column }}" id="col_{{ loop.index }}">
+                    <label class="form-check-label" for="col_{{ loop.index }}">
+                        {{ column }}
+                    </label>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+
+    <!-- Select output file format -->
+    <div class="mb-3">
+        <label for="output_format" class="form-label">Select File Format</label>
+        <select name="output_format" class="form-select" required>
+            <option value="xlsx">Excel (.xlsx)</option>
+            <option value="csv">CSV (.csv)</option>
+        </select>
+    </div>
+
+    <button type="submit" class="btn btn-success">Download Filtered File</button>
+</form>
+{% endblock %}

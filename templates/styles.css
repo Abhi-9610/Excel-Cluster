@@ -1,0 +1,74 @@
+body {
+    background-color: #f8f9fa;
+    font-family: 'Arial', sans-serif;
+}
+
+.container {
+    background-color: #ffffff;
+    border-radius: 8px;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    padding: 20px;
+}
+
+.btn-primary, .btn-success {
+    border-radius: 4px;
+    transition: background-color 0.3s, border-color 0.3s, transform 0.2s; /* Smooth transition */
+}
+
+/* Button hover effects */
+.btn-primary {
+    background-color: #007bff;
+    border-color: #007bff;
+}
+
+.btn-primary:hover {
+    background-color: #0056b3;
+    border-color: #0056b3;
+    transform: scale(1.05); /* Slightly enlarges on hover */
+}
+
+.btn-success {
+    background-color: #28a745;
+    border-color: #28a745;
+}
+
+.btn-success:hover {
+    background-color: #218838;
+    border-color: #218838;
+    transform: scale(1.05); /* Slightly enlarges on hover */
+}
+
+.form-control, .form-select, .form-check-input {
+    border-radius: 4px;
+    box-shadow: none;
+    transition: background-color 0.3s, box-shadow 0.3s, transform 0.2s; /* Smooth transition */
+}
+
+/* Form control hover effects */
+.form-control:hover, .form-select:hover {
+    background-color: #e9ecef; /* Light gray background */
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+    transform: translateY(-2px); /* Slightly raises the element */
+}
+
+/* Checkbox hover effect */
+.form-check-input:hover {
+    background-color: #e2e6ea; /* Light gray */
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+}
+
+/* Additional hover effect for interactive elements */
+input[type="file"]:hover,
+input[type="text"]:hover,
+input[type="email"]:hover,
+input[type="password"]:hover {
+    background-color: #e9ecef; /* Light gray */
+    border-color: #ccc;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+    transform: translateY(-2px); /* Slightly raises the element */
+}
+
+/* General hover effect for form labels */
+label:hover {
+    color: #007bff; /* Change label color on hover */
+}
