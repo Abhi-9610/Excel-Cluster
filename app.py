@@ -6,7 +6,7 @@ import firebase_admin
 from firebase_admin import credentials, storage
 from werkzeug.utils import secure_filename
 
-app = Flask(__name__)
+app = Flask(__name__,static_folder='templates')
 
 # Initialize Firebase Admin SDK
 cred = credentials.Certificate('serviceAccountKey.json')
