@@ -2,19 +2,15 @@ from flask import Flask, request, render_template, send_file
 import pandas as pd
 import os
 import tempfile
+import firebase_admin
+from firebase_admin import credentials, storage
 from werkzeug.utils import secure_filename
 
 app = Flask(__name__)
-UPLOAD_FOLDER = 'uploads'
-RESULT_FOLDER = 'results'
 
-
-# Ensure the upload and result directories exist
-os.makedirs(UPLOAD_FOLDER, exist_ok=True)
-os.makedirs(RESULT_FOLDER, exist_ok=True)
-
-app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
-app.config['RESULT_FOLDER'] = RESULT_FOLDER
+# Initialize Firebase Admin SDK
+cred = credentials.Certificate('serviceAccountKey.json')
+firebase_admin.initialize_app(cred, {'storageBucket': 'face-matply.appspot.com'})
 
 @app.route('/', methods=['GET', 'POST'])
 def index():
@@ -26,8 +22,17 @@ def index():
         file = request.files['file']
         if file:
             filename = secure_filename(file.filename)
-            file_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+            file_path = os.path.join(tempfile.gettempdir(), filename)
             file.save(file_path)
+
+            # Upload to Firebase Storage
+            bucket = storage.bucket()
+            blob = bucket.blob(filename)
+            blob.upload_from_filename(file_path)
+
+            # Generate public URL (optional)
+            blob.make_public()
+            file_url = blob.public_url
 
             # Read the file to get column names (support both CSV and Excel)
             try:
@@ -39,11 +44,12 @@ def index():
                     raise ValueError("Unsupported file format. Please upload an Excel or CSV file.")
 
                 columns = df.columns.tolist()
-                return render_template('filter.html', columns=columns, file=filename)
+                return render_template('filter.html', columns=columns, file=filename, file_url=file_url)
             except Exception as e:
                 return f"Error processing file: {e}", 400
 
     return render_template('index.html')
+
 @app.route('/filter', methods=['POST'])
 def filter_file():
     """
@@ -56,8 +62,12 @@ def filter_file():
         filename = request.form['file']
         output_format = request.form['output_format']
 
-        # Read the uploaded file
-        file_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+        # Download file from Firebase Storage
+        bucket = storage.bucket()
+        blob = bucket.blob(filename)
+        file_path = os.path.join(tempfile.gettempdir(), filename)
+        blob.download_to_filename(file_path)
+
         if filename.lower().endswith('.xlsx'):
             df = pd.read_excel(file_path)
         elif filename.lower().endswith('.csv'):
@@ -81,7 +91,7 @@ def filter_file():
         filtered_data.columns = [col for col in selected_columns]
 
         # Create a new file for filtered data in memory
-        output_file = tempfile.NamedTemporaryFile(delete=False, suffix=f'.{output_format}', dir=app.config['RESULT_FOLDER'])
+        output_file = tempfile.NamedTemporaryFile(delete=False, suffix=f'.{output_format}', dir=tempfile.gettempdir())
 
         if output_format == 'xlsx':
             with pd.ExcelWriter(output_file.name, engine='openpyxl') as writer:
@@ -94,11 +104,17 @@ def filter_file():
                 # Write the filtered data to a CSV
                 filtered_data.to_csv(f, index=False)
 
-        # Provide a download link for the result file
-        return send_file(output_file.name, as_attachment=True, download_name=f'filtered_{filename}')
+        # Upload the result to Firebase Storage
+        result_blob = bucket.blob(f'filtered_{filename}')
+        result_blob.upload_from_filename(output_file.name)
+
+        # Provide the file for direct download
+        response = send_file(output_file.name, as_attachment=True, download_name=f'filtered_{filename}')
+        return response
 
     except Exception as e:
         return f"Error during processing: {e}", 500
+
 
 if __name__ == '__main__':
     app.run(debug=True)
