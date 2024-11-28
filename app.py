@@ -2,15 +2,14 @@ from flask import Flask, request, render_template, send_file
 import pandas as pd
 import os
 import tempfile
-import firebase_admin
-from firebase_admin import credentials, storage
 from werkzeug.utils import secure_filename
 
 app = Flask(__name__)
 
-# Initialize Firebase Admin SDK
-cred = credentials.Certificate('serviceAccountKey.json')
-firebase_admin.initialize_app(cred, {'storageBucket': 'face-matply.appspot.com'})
+# Local storage directory for uploaded files
+UPLOAD_FOLDER = os.path.join(os.getcwd(), 'uploads')
+os.makedirs(UPLOAD_FOLDER, exist_ok=True)  # Ensure the folder exists
+app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 
 @app.route('/', methods=['GET', 'POST'])
 def index():
@@ -22,17 +21,8 @@ def index():
         file = request.files['file']
         if file:
             filename = secure_filename(file.filename)
-            file_path = os.path.join(tempfile.gettempdir(), filename)
+            file_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
             file.save(file_path)
-
-            # Upload to Firebase Storage
-            bucket = storage.bucket()
-            blob = bucket.blob(filename)
-            blob.upload_from_filename(file_path)
-
-            # Generate public URL (optional)
-            blob.make_public()
-            file_url = blob.public_url
 
             # Read the file to get column names (support both CSV and Excel)
             try:
@@ -44,7 +34,7 @@ def index():
                     raise ValueError("Unsupported file format. Please upload an Excel or CSV file.")
 
                 columns = df.columns.tolist()
-                return render_template('filter.html', columns=columns, file=filename, file_url=file_url)
+                return render_template('filter.html', columns=columns, file=filename)
             except Exception as e:
                 return f"Error processing file: {e}", 400
 
@@ -53,7 +43,8 @@ def index():
 @app.route('/filter', methods=['POST'])
 def filter_file():
     """
-    Route to filter data by a selected column and generate a filtered file with unique sheets for each value in the filter column.
+    Route to filter data by a selected column and generate a filtered file in the desired format
+    (Excel or CSV), regardless of the input file type.
     """
     try:
         # Get the form data
@@ -62,18 +53,18 @@ def filter_file():
         filename = request.form['file']
         output_format = request.form['output_format']
 
-        # Download file from Firebase Storage
-        bucket = storage.bucket()
-        blob = bucket.blob(filename)
-        file_path = os.path.join(tempfile.gettempdir(), filename)
-        blob.download_to_filename(file_path)
+        # Load the uploaded file
+        file_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
 
+        # Read the file based on its extension
         if filename.lower().endswith('.xlsx'):
             df = pd.read_excel(file_path)
         elif filename.lower().endswith('.csv'):
             df = pd.read_csv(file_path)
+        else:
+            raise ValueError("Unsupported file format. Please upload an Excel or CSV file.")
 
-        # Normalize the column names in the input data for comparison
+        # Normalize column names for case-insensitive processing
         df.columns = [col.lower() for col in df.columns]
 
         # Map the required columns
@@ -82,7 +73,7 @@ def filter_file():
 
         # Check for missing columns
         if missing_columns:
-            raise ValueError(f"The following required columns are missing in the Excel file: {missing_columns}")
+            raise ValueError(f"The following required columns are missing in the uploaded file: {missing_columns}")
 
         # Filter the data for only the required columns
         filtered_data = df[[mapped_columns[col.lower()] for col in selected_columns]]
@@ -90,34 +81,29 @@ def filter_file():
         # Rename columns to match the desired output format
         filtered_data.columns = [col for col in selected_columns]
 
-        # Create a new file for filtered data in memory
-        output_file = tempfile.NamedTemporaryFile(delete=False, suffix=f'.{output_format}', dir=tempfile.gettempdir())
+        # Create output file path
+        output_filename = f"filtered_{os.path.splitext(filename)[0]}.{output_format}"
+        output_file_path = os.path.join(app.config['UPLOAD_FOLDER'], output_filename)
 
+        # Save the filtered data in the desired format
         if output_format == 'xlsx':
-            with pd.ExcelWriter(output_file.name, engine='openpyxl') as writer:
+            with pd.ExcelWriter(output_file_path, engine='openpyxl') as writer:
                 # Create a unique sheet for each value in the filter column
                 for value, value_data in filtered_data.groupby(filter_column):
                     sheet_name = str(value)[:31]  # Sheet names must be <= 31 characters
                     value_data.to_excel(writer, sheet_name=sheet_name, index=False)
         elif output_format == 'csv':
-            with open(output_file.name, 'w', newline='', encoding='utf-8') as f:
-                # Write the filtered data to a CSV
-                filtered_data.to_csv(f, index=False)
+            filtered_data.to_csv(output_file_path, index=False)
+        else:
+            raise ValueError("Invalid output format. Please select either 'xlsx' or 'csv'.")
 
-        # Upload the result to Firebase Storage
-        result_blob = bucket.blob(f'filtered_{filename}')
-        result_blob.upload_from_filename(output_file.name)
-
-        # Provide the file for direct download
-        response = send_file(output_file.name, as_attachment=True, download_name=f'filtered_{filename}')
-        return response
+        # Provide the file for download
+        return send_file(output_file_path, as_attachment=True, download_name=output_filename)
 
     except Exception as e:
         return f"Error during processing: {e}", 500
 
 
+
 if __name__ == '__main__':
     app.run(debug=True)
-
-
-
