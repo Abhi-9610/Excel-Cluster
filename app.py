@@ -13,18 +13,16 @@ app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 
 @app.route('/', methods=['GET', 'POST'])
 def index():
-    """
-    Home route to upload file and select filtering options.
-    """
     if request.method == 'POST':
-        # Handle file upload
         file = request.files['file']
         if file:
             filename = secure_filename(file.filename)
             file_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
             file.save(file_path)
 
-            # Read the file to get column names (support both CSV and Excel)
+            # Debugging log
+            print(f"File saved successfully at {file_path}")
+
             try:
                 if filename.lower().endswith('.xlsx'):
                     df = pd.read_excel(file_path)
@@ -36,9 +34,10 @@ def index():
                 columns = df.columns.tolist()
                 return render_template('filter.html', columns=columns, file=filename)
             except Exception as e:
+                print(f"Error during file processing: {e}")
                 return f"Error processing file: {e}", 400
-
     return render_template('index.html')
+
 
 @app.route('/filter', methods=['POST'])
 def filter_file():
